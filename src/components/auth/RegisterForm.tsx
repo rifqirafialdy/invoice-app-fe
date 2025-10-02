@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/stores/authStore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import PasswordInput from '../ui/passwordInput';
+import PasswordInput from '@/components/ui/passwordInput';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { registerSchema, type RegisterFormData } from '@/lib/validations/auth';
@@ -17,14 +17,14 @@ export default function RegisterForm() {
   const { register: registerUser, error, clearError } = useAuthStore();
   
   const {
-  register,
-  handleSubmit,
-  formState: { errors, isSubmitting },
-  watch,
-} = useForm<RegisterFormData>({
-  resolver: zodResolver(registerSchema),
-  mode: 'onTouched', 
-});
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+    watch,
+  } = useForm<RegisterFormData>({
+    resolver: zodResolver(registerSchema),
+    mode: 'onTouched',
+  });
 
   const password = watch('password');
 
@@ -34,7 +34,8 @@ export default function RegisterForm() {
     try {
       const { confirmPassword, ...registerData } = data;
       await registerUser(registerData);
-      router.push('/verify-email');
+      
+      router.push('/dashboard');
     } catch (err) {
     }
   };
@@ -92,14 +93,7 @@ export default function RegisterForm() {
               disabled={isSubmitting}
             />
             {errors.password && (
-              <div className="text-xs text-red-600 space-y-1">
-                <p className="font-medium">Password requirements:</p>
-                <ul className="list-disc list-inside">
-                  {errors.password.message?.split(',').map((msg, idx) => (
-                    <li key={idx}>{msg.trim()}</li>
-                  ))}
-                </ul>
-              </div>
+              <p className="text-xs text-red-600">{errors.password.message}</p>
             )}
             {!errors.password && password && password.length >= 8 && (
               <p className="text-xs text-green-600">✓ Password meets requirements</p>

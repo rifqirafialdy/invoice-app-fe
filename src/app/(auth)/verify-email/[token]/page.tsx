@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { authApi } from '@/lib/api/authApi';
+import { useAuthStore } from '@/lib/stores/authStore';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -11,6 +12,7 @@ export default function VerifyTokenPage() {
   const router = useRouter();
   const params = useParams();
   const token = params.token as string;
+  const { logout } = useAuthStore();
   
   const [status, setStatus] = useState<'verifying' | 'success' | 'error'>('verifying');
   const [message, setMessage] = useState('');
@@ -22,11 +24,14 @@ export default function VerifyTokenPage() {
   }, [token]);
 
   const verifyEmail = async (token: string) => {
+    setStatus('verifying');
     try {
       const response = await authApi.verifyEmail(token);
       
       setStatus('success');
       setMessage(response.data.message || 'Your email has been verified successfully!');
+      
+      await logout();
       
       setTimeout(() => router.push('/login'), 2000);
     } catch (err: any) {
@@ -43,7 +48,7 @@ export default function VerifyTokenPage() {
         </CardTitle>
         <CardDescription>
           {status === 'verifying' && 'Please wait while we verify your email...'}
-          {status === 'success' && 'You can now login to your account'}
+          {status === 'success' && 'Please login again to continue'}
           {status === 'error' && 'There was a problem verifying your email'}
         </CardDescription>
       </CardHeader>
@@ -67,20 +72,20 @@ export default function VerifyTokenPage() {
           </div>
         )}
         
-       {status === 'error' && (
-  <div className="space-y-4">
-    <div className="bg-red-50 text-red-600 p-4 rounded-md text-center">
-      {message}
-    </div>
-    
-    <div className="bg-blue-50 p-4 rounded-md text-sm text-blue-800">
-      <p className="font-medium mb-2">Verification link expired?</p>
-      <p>Please login with your credentials to request a new verification link.</p>
-    </div>
+        {status === 'error' && (
+          <div className="space-y-4">
+            <div className="bg-red-50 text-red-600 p-4 rounded-md text-center">
+              {message}
+            </div>
 
-    
-  </div>
-)}
+            <Button 
+              onClick={() => router.push('/login')}
+              className="w-full"
+            >
+              Go to Login
+            </Button>
+          </div>
+        )}
       </CardContent>
       
       <CardFooter className="flex justify-center">

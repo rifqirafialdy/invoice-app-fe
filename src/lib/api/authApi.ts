@@ -18,7 +18,7 @@ export const authApi = {
     return axiosInstance.post<AuthResponse>('/auth/verify-email', { token });
   },
 
-  resendVerification: (email: string) => {
-    return axiosInstance.post<AuthResponse>('/auth/resend-verification', { email });
+  sendVerification: () => {
+    return axiosInstance.post<AuthResponse>('/auth/send-verification');
   },
 };

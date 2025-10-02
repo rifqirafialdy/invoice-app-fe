@@ -37,6 +37,7 @@ export const useAuthStore = create<AuthState>()(
                   email: userData.email,
                   name: userData.name,
                   companyName: userData.companyName,
+                  isVerified: userData.isVerified,
                 },
                 isAuthenticated: true,
                 isLoading: false,
@@ -52,20 +53,33 @@ export const useAuthStore = create<AuthState>()(
           }
         },
 
-        register: async (data: RegisterRequest) => {
-          set({ isLoading: true, error: null });
-          try {
-            await authApi.register(data);
-            set({ isLoading: false });
-          } catch (error: any) {
-            const errorMessage = error.response?.data?.error || 'Registration failed';
-            set({ 
-              isLoading: false, 
-              error: errorMessage,
-            });
-            throw error;
-          }
+       register: async (data: RegisterRequest) => {
+  set({ isLoading: true, error: null });
+  try {
+    const response = await authApi.register(data);
+    const userData = response.data.data;
+        if (userData) {
+      set({
+        user: {
+          id: userData.userId,
+          email: userData.email,
+          name: userData.name,
+          companyName: userData.companyName,
+          isVerified: userData.isVerified,
         },
+        isAuthenticated: true,
+        isLoading: false,
+      });
+    }
+  } catch (error: any) {
+    const errorMessage = error.response?.data?.error || 'Registration failed';
+    set({ 
+      isLoading: false, 
+      error: errorMessage,
+    });
+    throw error;
+  }
+},
 
         logout: async () => {
           try {
