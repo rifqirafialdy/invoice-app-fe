@@ -37,7 +37,6 @@ export default function ClientsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           {view !== 'list' && (
@@ -60,7 +59,6 @@ export default function ClientsPage() {
         </div>
       </div>
 
-      {/* Content */}
       {view === 'list' && (
         <ClientsList
           onEdit={handleEdit}
