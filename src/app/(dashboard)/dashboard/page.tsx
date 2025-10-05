@@ -5,14 +5,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Plus, TrendingUp, Clock, CheckCircle, FileText } from 'lucide-react';
-import VerificationBanner from '@/components/dashboard/VerificationBanner';
 
 export default function DashboardPage() {
   const { user } = useAuthStore();
 
   return (
     <div className="space-y-8">
-      <VerificationBanner/>
+    
       <div>
         <h1 className="text-3xl font-bold text-slate-900">
           Welcome back, {user?.name}!
