@@ -1,9 +1,17 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { productApi } from '@/lib/api/productApi';
+import { useState, useEffect,useMemo } from 'react';
+import { useProductStore } from '@/lib/stores/productStore';
+import { useListFilters } from '@/hooks/useListFilters';
+import { ListFilters } from '@/components/common/ListFilters';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -12,8 +20,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Search, Pencil, Trash2 } from 'lucide-react';
-import type { Product } from '@/types/product';
+import { Pencil, Trash2 } from 'lucide-react';
+import { ProductType, type Product } from '@/types/product';
+import { useSearchParams } from 'next/navigation';
 
 interface ProductsListProps {
   onEdit: (product: Product) => void;
@@ -21,45 +30,70 @@ interface ProductsListProps {
   refreshTrigger?: number;
 }
 
+const SORT_OPTIONS = [
+  { value: 'name', label: 'Name' },
+  { value: 'price', label: 'Price' },
+  { value: 'createdAt', label: 'Date Created' },
+];
+
 export default function ProductsList({ onEdit, onAdd, refreshTrigger }: ProductsListProps) {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [page, setPage] = useState(0);
-  const [totalPages, setTotalPages] = useState(0);
+  const searchParams = useSearchParams();
+  const [typeFilter, setTypeFilter] = useState<string>(searchParams.get('type') || 'ALL');
+  
+  const additionalFilters = useMemo(() => ({
+    type: typeFilter,
+  }), [typeFilter]);
+  
+  const filters = useListFilters({
+    additionalFilters: additionalFilters 
+  });
+  
+  const { products, totalPages, loading, fetchProducts, deleteProduct, invalidateCache } = useProductStore();
 
   useEffect(() => {
-    fetchProducts();
-  }, [page, refreshTrigger]);
+    fetchProducts(
+      filters.page,
+      filters.sortBy,
+      filters.sortDir,
+      filters.debouncedSearch,
+      typeFilter
+    );
+  }, [filters.page, filters.sortBy, filters.sortDir, filters.debouncedSearch, typeFilter]);
 
-  const fetchProducts = async () => {
-    setLoading(true);
-    try {
-      const response = await productApi.getAll(page, 10);
-      setProducts(response.data.data.content);
-      setTotalPages(response.data.data.totalPages);
-    } catch (error) {
-      console.error('Failed to fetch products:', error);
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    if (refreshTrigger) {
+      invalidateCache();
+      fetchProducts(
+        filters.page,
+        filters.sortBy,
+        filters.sortDir,
+        filters.debouncedSearch,
+        typeFilter
+      );
     }
-  };
+  }, [refreshTrigger]);
 
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this product?')) return;
 
     try {
-      await productApi.delete(id);
-      fetchProducts();
+      await deleteProduct(id);
+      fetchProducts(
+        filters.page,
+        filters.sortBy,
+        filters.sortDir,
+        filters.debouncedSearch,
+        typeFilter
+      );
     } catch (error) {
       console.error('Failed to delete product:', error);
     }
   };
 
-  const filteredProducts = products.filter(product =>
-    product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.description?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const handleReset = () => {
+    filters.reset();
+    setTypeFilter('ALL');
+  };
 
   if (loading) {
     return (
@@ -71,66 +105,67 @@ export default function ProductsList({ onEdit, onAdd, refreshTrigger }: Products
 
   return (
     <div className="space-y-6">
-      <div className="flex gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
-          <Input
-            type="text"
-            placeholder="Search products..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-        <Button onClick={onAdd}>Add Product</Button>
-      </div>
+      <ListFilters
+        search={filters.search}
+        onSearchChange={filters.setSearch}
+        sortBy={filters.sortBy}
+        onSortByChange={filters.setSortBy}
+        sortDir={filters.sortDir}
+        onSortDirChange={filters.setSortDir}
+        onReset={handleReset}
+        onAdd={onAdd}
+        addLabel="Add Product"
+        sortOptions={SORT_OPTIONS}
+      >
+        <Select value={typeFilter} onValueChange={setTypeFilter}>
+          <SelectTrigger className="w-40">
+            <SelectValue placeholder="Type" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ALL">All Types</SelectItem>
+            <SelectItem value={ProductType.PRODUCT}>Product</SelectItem>
+            <SelectItem value={ProductType.SERVICE}>Service</SelectItem>
+          </SelectContent>
+        </Select>
+      </ListFilters>
 
       <div className="rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
-              <TableHead>Description</TableHead>
-              <TableHead>Price</TableHead>
               <TableHead>Type</TableHead>
+              <TableHead>Price</TableHead>
+              <TableHead>Description</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredProducts.length === 0 ? (
+            {products.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="h-24 text-center text-slate-500">
-                  No products found. Add your first product to get started.
+                  No products found.
                 </TableCell>
               </TableRow>
             ) : (
-              filteredProducts.map((product) => (
+              products.map((product) => (
                 <TableRow key={product.id}>
                   <TableCell className="font-medium">{product.name}</TableCell>
-                  <TableCell>{product.description || '-'}</TableCell>
                   <TableCell>
-                    {new Intl.NumberFormat('id-ID', {
-                        style: 'currency',
-                        currency: 'IDR',
-                        minimumFractionDigits: 0,
-                    }).format(product.price)}
-                    </TableCell>
-                  <TableCell>
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      product.type === 'PRODUCT' 
-                        ? 'bg-blue-100 text-blue-800' 
-                        : 'bg-green-100 text-green-800'
-                    }`}>
+                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                       {product.type}
                     </span>
                   </TableCell>
+                  <TableCell>
+                    {new Intl.NumberFormat('id-ID', {
+                      style: 'currency',
+                      currency: 'IDR',
+                      minimumFractionDigits: 0,
+                    }).format(product.price)}
+                  </TableCell>
+                  <TableCell>{product.description}</TableCell>
                   <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onEdit(product)}
-                      className="mr-2"
-                    >
+                    <Button variant="ghost" size="sm" onClick={() => onEdit(product)} className="mr-2">
                       <Pencil className="w-4 h-4" />
                     </Button>
                     <Button
@@ -153,18 +188,18 @@ export default function ProductsList({ onEdit, onAdd, refreshTrigger }: Products
         <div className="flex justify-center gap-2">
           <Button
             variant="outline"
-            onClick={() => setPage(p => Math.max(0, p - 1))}
-            disabled={page === 0}
+            onClick={() => filters.setPage((p) => Math.max(0, p - 1))}
+            disabled={filters.page === 0}
           >
             Previous
           </Button>
           <span className="flex items-center px-4 text-sm text-slate-600">
-            Page {page + 1} of {totalPages}
+            Page {filters.page + 1} of {totalPages}
           </span>
           <Button
             variant="outline"
-            onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
-            disabled={page === totalPages - 1}
+            onClick={() => filters.setPage((p) => Math.min(totalPages - 1, p + 1))}
+            disabled={filters.page === totalPages - 1}
           >
             Next
           </Button>

@@ -1,9 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { clientApi } from '@/lib/api/clientApi';
+import { useState, useEffect,useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { useClientStore } from '@/lib/stores/clientStore';
+import { useListFilters } from '@/hooks/useListFilters';
+import { ListFilters } from '@/components/common/ListFilters';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import {
   Table,
   TableBody,
@@ -12,7 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Search, Pencil, Trash2 } from 'lucide-react';
+import { Pencil, Trash2 } from 'lucide-react';
 import type { Client } from '@/types/client';
 
 interface ClientsListProps {
@@ -21,69 +23,78 @@ interface ClientsListProps {
   refreshTrigger?: number;
 }
 
+const SORT_OPTIONS = [
+  { value: 'name', label: 'Name' },
+  { value: 'email', label: 'Email' },
+  { value: 'createdAt', label: 'Date Created' },
+];
+
 export default function ClientsList({ onEdit, onAdd, refreshTrigger }: ClientsListProps) {
-  const [clients, setClients] = useState<Client[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [page, setPage] = useState(0);
-  const [totalPages, setTotalPages] = useState(0);
+  const searchParams = useSearchParams();
+  
+  const additionalFilters = useMemo(() => ({}), []); 
+  
+  const filters = useListFilters({
+    additionalFilters: additionalFilters 
+  });
+  
+  const { clients, totalPages, loading, fetchClients, deleteClient, invalidateCache } = useClientStore();
 
   useEffect(() => {
-    fetchClients();
-  }, [page, refreshTrigger]);
+    fetchClients(
+      filters.page,
+      filters.sortBy,
+      filters.sortDir,
+      filters.debouncedSearch
+    );
+  }, [filters.page, filters.sortBy, filters.sortDir, filters.debouncedSearch]);
 
-  const fetchClients = async () => {
-    setLoading(true);
-    try {
-      const response = await clientApi.getAll(page, 10);
-      setClients(response.data.data.content);
-      setTotalPages(response.data.data.totalPages);
-    } catch (error) {
-      console.error('Failed to fetch clients:', error);
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    if (refreshTrigger) {
+      invalidateCache();
+      fetchClients(
+        filters.page,
+        filters.sortBy,
+        filters.sortDir,
+        filters.debouncedSearch
+      );
     }
-  };
+  }, [refreshTrigger]);
 
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this client?')) return;
 
     try {
-      await clientApi.delete(id);
-      fetchClients();
+      await deleteClient(id);
+      fetchClients(
+        filters.page,
+        filters.sortBy,
+        filters.sortDir,
+        filters.debouncedSearch
+      );
     } catch (error) {
       console.error('Failed to delete client:', error);
     }
   };
 
-  const filteredClients = clients.filter(client =>
-    client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    client.email?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
+  const handleReset = () => {
+    filters.reset();
+  };
 
   return (
     <div className="space-y-6">
-      <div className="flex gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
-          <Input
-            type="text"
-            placeholder="Search clients..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-        <Button onClick={onAdd}>Add Client</Button>
-      </div>
+      <ListFilters
+        search={filters.search}
+        onSearchChange={filters.setSearch}
+        sortBy={filters.sortBy}
+        onSortByChange={filters.setSortBy}
+        sortDir={filters.sortDir}
+        onSortDirChange={filters.setSortDir}
+        onReset={filters.reset}
+        onAdd={onAdd}
+        addLabel="Add Client"
+        sortOptions={SORT_OPTIONS}
+      />
 
       <div className="rounded-md border">
         <Table>
@@ -92,31 +103,26 @@ export default function ClientsList({ onEdit, onAdd, refreshTrigger }: ClientsLi
               <TableHead>Name</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Phone</TableHead>
-              <TableHead>Payment Method</TableHead>
+              <TableHead>Address</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredClients.length === 0 ? (
+            {clients.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="h-24 text-center text-slate-500">
-                  No clients found. Add your first client to get started.
+                  No clients found.
                 </TableCell>
               </TableRow>
             ) : (
-              filteredClients.map((client) => (
+              clients.map((client) => (
                 <TableRow key={client.id}>
                   <TableCell className="font-medium">{client.name}</TableCell>
-                  <TableCell>{client.email || '-'}</TableCell>
-                  <TableCell>{client.phone || '-'}</TableCell>
-                  <TableCell>{client.paymentPreferences || '-'}</TableCell>
+                  <TableCell>{client.email}</TableCell>
+                  <TableCell>{client.phone}</TableCell>
+                  <TableCell>{client.address}</TableCell>
                   <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onEdit(client)}
-                      className="mr-2"
-                    >
+                    <Button variant="ghost" size="sm" onClick={() => onEdit(client)} className="mr-2">
                       <Pencil className="w-4 h-4" />
                     </Button>
                     <Button
@@ -139,18 +145,18 @@ export default function ClientsList({ onEdit, onAdd, refreshTrigger }: ClientsLi
         <div className="flex justify-center gap-2">
           <Button
             variant="outline"
-            onClick={() => setPage(p => Math.max(0, p - 1))}
-            disabled={page === 0}
+            onClick={() => filters.setPage((p) => Math.max(0, p - 1))}
+            disabled={filters.page === 0}
           >
             Previous
           </Button>
           <span className="flex items-center px-4 text-sm text-slate-600">
-            Page {page + 1} of {totalPages}
+            Page {filters.page + 1} of {totalPages}
           </span>
           <Button
             variant="outline"
-            onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
-            disabled={page === totalPages - 1}
+            onClick={() => filters.setPage((p) => Math.min(totalPages - 1, p + 1))}
+            disabled={filters.page === totalPages - 1}
           >
             Next
           </Button>

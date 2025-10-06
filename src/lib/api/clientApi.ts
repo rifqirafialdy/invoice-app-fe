@@ -3,10 +3,11 @@ import type { Client, ClientRequest, ClientsResponse } from '@/types/client';
 import type { ApiResponse } from '@/types/api';
 
 export const clientApi = {
-  getAll: (page: number = 0, size: number = 10, sortBy: string = 'createdAt', sortDir: string = 'desc') => {
-    return axiosInstance.get<ApiResponse<ClientsResponse>>('/clients', {
-      params: { page, size, sortBy, sortDir }
-    });
+  getAll: (page: number = 0, size: number = 10, sortBy: string = 'createdAt', sortDir: string = 'desc', search?: string) => {
+    const params: any = { page, size, sortBy, sortDir };
+    if (search) params.search = search;
+    
+    return axiosInstance.get<ApiResponse<ClientsResponse>>('/clients', { params });
   },
 
   getById: (id: string) => {

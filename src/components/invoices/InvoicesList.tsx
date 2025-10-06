@@ -1,9 +1,17 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { invoiceApi } from '@/lib/api/invoiceApi';
+import { useState, useEffect,useMemo } from 'react';
+import { useInvoiceStore } from '@/lib/stores/invoiceStore';
+import { useListFilters } from '@/hooks/useListFilters';
+import { ListFilters } from '@/components/common/ListFilters';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -13,7 +21,8 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Search, Pencil, Trash2, Eye } from 'lucide-react';
-import type { Invoice } from '@/types/invoice';
+import { InvoiceStatus, type Invoice } from '@/types/invoice';
+import { useSearchParams } from 'next/navigation';
 
 interface InvoicesListProps {
   onEdit: (invoice: Invoice) => void;
@@ -22,39 +31,70 @@ interface InvoicesListProps {
   refreshTrigger?: number;
 }
 
+const SORT_OPTIONS = [
+  { value: 'invoiceNumber', label: 'Invoice Number' },
+  { value: 'issueDate', label: 'Issue Date' },
+  { value: 'dueDate', label: 'Due Date' },
+  { value: 'total', label: 'Total Amount' },
+  { value: 'createdAt', label: 'Date Created' },
+];
+
 export default function InvoicesList({ onEdit, onView, onAdd, refreshTrigger }: InvoicesListProps) {
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [page, setPage] = useState(0);
-  const [totalPages, setTotalPages] = useState(0);
+  const searchParams = useSearchParams();
+  const [statusFilter, setStatusFilter] = useState<string>(searchParams.get('status') || 'ALL');
+  const additionalFilters = useMemo(() => ({
+    status: statusFilter,
+  }), [statusFilter]);
+ const filters = useListFilters({
+    additionalFilters: additionalFilters 
+  });
+  const { invoices, totalPages, loading, fetchInvoices, deleteInvoice, invalidateCache } = useInvoiceStore();
+
+    useEffect(() => {
+    fetchInvoices(
+      filters.page,
+      filters.sortBy,
+      filters.sortDir,
+      filters.debouncedSearch,
+      statusFilter
+    );
+  }, [filters.page, filters.sortBy, filters.sortDir, filters.debouncedSearch, statusFilter]);
 
   useEffect(() => {
-    fetchInvoices();
-  }, [page, refreshTrigger]);
-
-  const fetchInvoices = async () => {
-    setLoading(true);
-    try {
-      const response = await invoiceApi.getAll(page, 10);
-      setInvoices(response.data.data.content);
-      setTotalPages(response.data.data.totalPages);
-    } catch (error) {
-      console.error('Failed to fetch invoices:', error);
-    } finally {
-      setLoading(false);
+    if (refreshTrigger) {
+      invalidateCache();
+      fetchInvoices(
+        filters.page,
+        filters.sortBy,
+        filters.sortDir,
+        filters.debouncedSearch,
+        statusFilter
+      );
     }
-  };
+  }, [refreshTrigger]);
 
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this invoice?')) return;
 
     try {
-      await invoiceApi.delete(id);
-      fetchInvoices();
+      await deleteInvoice(id);
+      fetchInvoices(
+        filters.page,
+        filters.sortBy,
+        filters.sortDir,
+        filters.debouncedSearch,
+        statusFilter
+      );
     } catch (error) {
       console.error('Failed to delete invoice:', error);
     }
+  };
+
+  
+
+  const handleReset = () => {
+    filters.reset();
+    setStatusFilter('ALL');
   };
 
   const getStatusColor = (status: string) => {
@@ -69,11 +109,6 @@ export default function InvoicesList({ onEdit, onView, onAdd, refreshTrigger }: 
     }
   };
 
-  const filteredInvoices = invoices.filter(invoice =>
-    invoice.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    invoice.clientName.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -84,19 +119,33 @@ export default function InvoicesList({ onEdit, onView, onAdd, refreshTrigger }: 
 
   return (
     <div className="space-y-6">
-      <div className="flex gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
-          <Input
-            type="text"
-            placeholder="Search by invoice number or client..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-        <Button onClick={onAdd}>Create Invoice</Button>
-      </div>
+      <ListFilters
+        search={filters.search}
+        onSearchChange={filters.setSearch}
+        sortBy={filters.sortBy}
+        onSortByChange={filters.setSortBy}
+        sortDir={filters.sortDir}
+        onSortDirChange={filters.setSortDir}
+        onReset={handleReset}
+        onAdd={onAdd}
+        addLabel="Create Invoice"
+        sortOptions={SORT_OPTIONS}
+      >
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-40">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ALL">All Status</SelectItem>
+            <SelectItem value={InvoiceStatus.DRAFT}>Draft</SelectItem>
+            <SelectItem value={InvoiceStatus.SENT}>Sent</SelectItem>
+            <SelectItem value={InvoiceStatus.DUE}>Due</SelectItem>
+            <SelectItem value={InvoiceStatus.OVERDUE}>Overdue</SelectItem>
+            <SelectItem value={InvoiceStatus.PAID}>Paid</SelectItem>
+            <SelectItem value={InvoiceStatus.CANCELLED}>Cancelled</SelectItem>
+          </SelectContent>
+        </Select>
+      </ListFilters>
 
       <div className="rounded-md border">
         <Table>
@@ -112,14 +161,14 @@ export default function InvoicesList({ onEdit, onView, onAdd, refreshTrigger }: 
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredInvoices.length === 0 ? (
+            {invoices.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="h-24 text-center text-slate-500">
-                  No invoices found. Create your first invoice to get started.
+                  No invoices found.
                 </TableCell>
               </TableRow>
             ) : (
-              filteredInvoices.map((invoice) => (
+              invoices.map((invoice) => (
                 <TableRow key={invoice.id}>
                   <TableCell className="font-medium">{invoice.invoiceNumber}</TableCell>
                   <TableCell>{invoice.clientName}</TableCell>
@@ -138,20 +187,10 @@ export default function InvoicesList({ onEdit, onView, onAdd, refreshTrigger }: 
                     }).format(invoice.total)}
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onView(invoice)}
-                      className="mr-2"
-                    >
+                    <Button variant="ghost" size="sm" onClick={() => onView(invoice)} className="mr-2">
                       <Eye className="w-4 h-4" />
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onEdit(invoice)}
-                      className="mr-2"
-                    >
+                    <Button variant="ghost" size="sm" onClick={() => onEdit(invoice)} className="mr-2">
                       <Pencil className="w-4 h-4" />
                     </Button>
                     <Button
@@ -174,18 +213,18 @@ export default function InvoicesList({ onEdit, onView, onAdd, refreshTrigger }: 
         <div className="flex justify-center gap-2">
           <Button
             variant="outline"
-            onClick={() => setPage(p => Math.max(0, p - 1))}
-            disabled={page === 0}
+            onClick={() => filters.setPage((p) => Math.max(0, p - 1))}
+            disabled={filters.page === 0}
           >
             Previous
           </Button>
           <span className="flex items-center px-4 text-sm text-slate-600">
-            Page {page + 1} of {totalPages}
+            Page {filters.page + 1} of {totalPages}
           </span>
           <Button
             variant="outline"
-            onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
-            disabled={page === totalPages - 1}
+            onClick={() => filters.setPage((p) => Math.min(totalPages - 1, p + 1))}
+            disabled={filters.page === totalPages - 1}
           >
             Next
           </Button>
