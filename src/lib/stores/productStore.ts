@@ -6,8 +6,6 @@ interface ProductState {
   products: Product[];
   totalPages: number;
   loading: boolean;
-  lastFetch: number | null;
-  lastParams: string | null;
   
   fetchProducts: (
     page: number,
@@ -24,19 +22,11 @@ export const useProductStore = create<ProductState>((set, get) => ({
   products: [],
   totalPages: 0,
   loading: false,
-  lastFetch: null,
-  lastParams: null,
 
   fetchProducts: async (page, sortBy, sortDir, search, type) => {
-    const params = JSON.stringify({ page, sortBy, sortDir, search, type });
-    const now = Date.now();
-    const { lastFetch, lastParams, loading } = get();
-
-    if (lastParams === params && lastFetch && now - lastFetch < 30000) {
-      console.log('Using cached products');
-      return;
-    }
-
+    // Frontend caching logic has been removed.
+    
+    const { loading } = get();
     if (loading) return;
 
     set({ loading: true });
@@ -55,8 +45,6 @@ export const useProductStore = create<ProductState>((set, get) => ({
         products: response.data.data.content,
         totalPages: response.data.data.totalPages,
         loading: false,
-        lastFetch: now,
-        lastParams: params,
       });
     } catch (error) {
       console.error('Failed to fetch products:', error);
@@ -67,14 +55,14 @@ export const useProductStore = create<ProductState>((set, get) => ({
   deleteProduct: async (id: string) => {
     try {
       await productApi.delete(id);
-      get().invalidateCache();
     } catch (error) {
       console.error('Failed to delete product:', error);
       throw error;
     }
   },
 
+  // This function is no longer necessary but is kept to avoid errors.
   invalidateCache: () => {
-    set({ lastFetch: null, lastParams: null });
+    // This function is now empty.
   },
 }));

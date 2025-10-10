@@ -1,10 +1,13 @@
 'use client';
 
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { productApi } from '@/lib/api/productApi';
 import { productSchema, type ProductFormData } from '@/lib/validations/product';
 import { ProductType, type Product } from '@/types/product';
+import ConfirmationDialog from '@/components/common/ConfirmationDialog';
+import SuccessDialog from '@/components/common/SuccessDialog';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -25,7 +28,6 @@ import {
 } from '@/components/ui/select';
 import { CurrencyInput } from '@/components/ui/currency-input';
 
-
 interface ProductFormProps {
   product?: Product;
   onSuccess: () => void;
@@ -33,6 +35,10 @@ interface ProductFormProps {
 }
 
 export default function ProductForm({ product, onSuccess, onCancel }: ProductFormProps) {
+  const [isConfirmOpen, setConfirmOpen] = useState(false);
+  const [successState, setSuccessState] = useState({ isOpen: false, title: '', description: '' });
+  const isEditMode = !!product;
+
   const form = useForm<ProductFormData>({
     resolver: zodResolver(productSchema),
     defaultValues: {
@@ -47,106 +53,131 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     try {
       if (product) {
         await productApi.update(product.id, data);
+        setSuccessState({ isOpen: true, title: 'Product Updated!', description: 'Your changes have been saved.' });
       } else {
         await productApi.create(data);
+        setSuccessState({ isOpen: true, title: 'Product Created!', description: 'The new product is now available.' });
       }
-      form.reset();
-      onSuccess();
     } catch (error: any) {
       const errorMessage = error.response?.data?.error || 'Failed to save product';
       form.setError('root', { message: errorMessage });
     }
   };
 
+  const handleSuccessDialogClose = () => {
+    setSuccessState({ isOpen: false, title: '', description: '' });
+    onSuccess();
+    form.reset();
+  };
+
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        {form.formState.errors.root && (
-          <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm">
-            {form.formState.errors.root.message}
-          </div>
-        )}
-
-        <FormField
-          control={form.control}
-          name="name"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Product Name *</FormLabel>
-              <FormControl>
-                <Input placeholder="Website Design" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
+    <>
+      <Form {...form}>
+        <form onSubmit={(e) => { e.preventDefault(); setConfirmOpen(true); }} className="space-y-6">
+          {form.formState.errors.root && (
+            <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm">
+              {form.formState.errors.root.message}
+            </div>
           )}
-        />
 
-        <FormField
-          control={form.control}
-          name="description"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Description</FormLabel>
-              <FormControl>
-                <Textarea 
-                  placeholder="Product or service description" 
-                  rows={3}
-                  {...field} 
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-            <FormField
+          <FormField
             control={form.control}
-            name="price"
+            name="name"
             render={({ field }) => (
-                <FormItem>
-                <FormLabel>Price (Rp) *</FormLabel>
+              <FormItem>
+                <FormLabel>Product Name *</FormLabel>
                 <FormControl>
-                    <CurrencyInput 
-                    placeholder="50.000" 
-                    value={field.value}
-                    onChange={field.onChange}
-                    />
+                  <Input placeholder="Website Design" {...field} />
                 </FormControl>
                 <FormMessage />
-                </FormItem>
+              </FormItem>
             )}
-            />
+          />
 
-        <FormField
-          control={form.control}
-          name="type"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Type *</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
+          <FormField
+            control={form.control}
+            name="description"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Description</FormLabel>
                 <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select product type" />
-                  </SelectTrigger>
+                  <Textarea 
+                    placeholder="Product or service description" 
+                    rows={3}
+                    {...field} 
+                  />
                 </FormControl>
-                <SelectContent>
-                  <SelectItem value={ProductType.PRODUCT}>Product</SelectItem>
-                  <SelectItem value={ProductType.SERVICE}>Service</SelectItem>
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+              <FormField
+              control={form.control}
+              name="price"
+              render={({ field }) => (
+                  <FormItem>
+                  <FormLabel>Price (Rp) *</FormLabel>
+                  <FormControl>
+                      <CurrencyInput 
+                      placeholder="50.000" 
+                      value={field.value}
+                      onChange={field.onChange}
+                      />
+                  </FormControl>
+                  <FormMessage />
+                  </FormItem>
+              )}
+              />
 
-        <div className="flex gap-3 justify-end">
-          <Button type="button" variant="outline" onClick={onCancel}>
-            Cancel
-          </Button>
-          <Button type="submit" disabled={form.formState.isSubmitting}>
-            {form.formState.isSubmitting ? 'Saving...' : product ? 'Update Product' : 'Create Product'}
-          </Button>
-        </div>
-      </form>
-    </Form>
+          <FormField
+            control={form.control}
+            name="type"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Type *</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select product type" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value={ProductType.PRODUCT}>Product</SelectItem>
+                    <SelectItem value={ProductType.SERVICE}>Service</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <div className="flex gap-3 justify-end">
+            <Button type="button" variant="outline" onClick={onCancel}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={form.formState.isSubmitting}>
+              {form.formState.isSubmitting ? 'Saving...' : product ? 'Update Product' : 'Create Product'}
+            </Button>
+          </div>
+        </form>
+      </Form>
+
+      <ConfirmationDialog
+        isOpen={isConfirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        onConfirm={form.handleSubmit(onSubmit)}
+        title={isEditMode ? 'Confirm Update' : 'Confirm Creation'}
+        description={`Are you sure you want to ${isEditMode ? 'update this product' : 'create this new product'}?`}
+        confirmText={isEditMode ? 'Update' : 'Create'}
+        isDestructive={false}
+      />
+
+      <SuccessDialog
+        isOpen={successState.isOpen}
+        onClose={handleSuccessDialogClose}
+        title={successState.title}
+        description={successState.description}
+      />
+    </>
   );
 }

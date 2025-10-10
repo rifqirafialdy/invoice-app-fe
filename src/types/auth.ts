@@ -4,6 +4,7 @@ export interface User {
   name: string;
   companyName?: string;
   isVerified?: boolean;
+  logoUrl?: string; 
 }
 
 export interface LoginRequest {
@@ -27,6 +28,7 @@ export interface AuthResponse {
     email: string;
     name: string;
     companyName?: string;
+    logoUrl?: string; 
     accessToken?: string;
     refreshToken?: string;
     isVerified?: boolean; 
@@ -40,4 +42,20 @@ export interface VerifyEmailRequest {
 
 export interface ResendVerificationRequest {
   email: string;
+}
+
+export interface UserUpdateRequest {
+  name: string;
+  companyName: string;
+  phone?: string;
+  address?: string;
+}
+
+export interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
+}
+
+export interface EmailChangeRequest {
+  newEmail: string;
 }

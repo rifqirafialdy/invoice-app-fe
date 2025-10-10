@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useEffect,useMemo } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useState, useEffect, useMemo } from 'react';
 import { useClientStore } from '@/lib/stores/clientStore';
 import { useListFilters } from '@/hooks/useListFilters';
 import { ListFilters } from '@/components/common/ListFilters';
@@ -30,15 +29,13 @@ const SORT_OPTIONS = [
 ];
 
 export default function ClientsList({ onEdit, onAdd, refreshTrigger }: ClientsListProps) {
-  const searchParams = useSearchParams();
-  
   const additionalFilters = useMemo(() => ({}), []); 
   
   const filters = useListFilters({
     additionalFilters: additionalFilters 
   });
   
-  const { clients, totalPages, loading, fetchClients, deleteClient, invalidateCache } = useClientStore();
+  const { clients, totalPages, loading, fetchClients, deleteClient } = useClientStore();
 
   useEffect(() => {
     fetchClients(
@@ -47,11 +44,10 @@ export default function ClientsList({ onEdit, onAdd, refreshTrigger }: ClientsLi
       filters.sortDir,
       filters.debouncedSearch
     );
-  }, [filters.page, filters.sortBy, filters.sortDir, filters.debouncedSearch]);
+  }, [filters.page, filters.sortBy, filters.sortDir, filters.debouncedSearch, fetchClients]);
 
   useEffect(() => {
-    if (refreshTrigger) {
-      invalidateCache();
+    if (refreshTrigger && refreshTrigger > 0) {
       fetchClients(
         filters.page,
         filters.sortBy,
@@ -59,7 +55,7 @@ export default function ClientsList({ onEdit, onAdd, refreshTrigger }: ClientsLi
         filters.debouncedSearch
       );
     }
-  }, [refreshTrigger]);
+  }, [refreshTrigger, filters.page, filters.sortBy, filters.sortDir, filters.debouncedSearch, fetchClients]);
 
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this client?')) return;
@@ -77,9 +73,13 @@ export default function ClientsList({ onEdit, onAdd, refreshTrigger }: ClientsLi
     }
   };
 
-  const handleReset = () => {
-    filters.reset();
-  };
+  if (loading && clients.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -146,7 +146,7 @@ export default function ClientsList({ onEdit, onAdd, refreshTrigger }: ClientsLi
           <Button
             variant="outline"
             onClick={() => filters.setPage((p) => Math.max(0, p - 1))}
-            disabled={filters.page === 0}
+            disabled={filters.page === 0 || loading}
           >
             Previous
           </Button>
@@ -156,7 +156,7 @@ export default function ClientsList({ onEdit, onAdd, refreshTrigger }: ClientsLi
           <Button
             variant="outline"
             onClick={() => filters.setPage((p) => Math.min(totalPages - 1, p + 1))}
-            disabled={filters.page === totalPages - 1}
+            disabled={filters.page === totalPages - 1 || loading}
           >
             Next
           </Button>

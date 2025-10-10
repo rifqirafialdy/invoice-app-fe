@@ -13,9 +13,11 @@ interface InvoiceState {
     sortBy: string,
     sortDir: string,
     search?: string,
-    status?: string
+    status?: string,
+    isRecurring?: string
   ) => Promise<void>;
   deleteInvoice: (id: string) => Promise<void>;
+  stopRecurringInvoice: (id: string) => Promise<void>;
   invalidateCache: () => void;
 }
 
@@ -26,8 +28,8 @@ export const useInvoiceStore = create<InvoiceState>((set, get) => ({
   lastFetch: null,
   lastParams: null,
 
-  fetchInvoices: async (page, sortBy, sortDir, search, status) => {
-    const params = JSON.stringify({ page, sortBy, sortDir, search, status });
+  fetchInvoices: async (page, sortBy, sortDir, search, status, isRecurring) => {
+    const params = JSON.stringify({ page, sortBy, sortDir, search, status, isRecurring });
     const now = Date.now();
     const { lastFetch, lastParams, loading } = get();
     if (lastParams === params && lastFetch && now - lastFetch < 30000) {
@@ -46,7 +48,9 @@ export const useInvoiceStore = create<InvoiceState>((set, get) => ({
         sortBy,
         sortDir,
         search || undefined,
-        status !== 'ALL' ? status : undefined
+        status !== 'ALL' ? status : undefined,
+        isRecurring !== 'ALL' ? isRecurring : undefined
+
       );
       
       set({
@@ -68,6 +72,16 @@ export const useInvoiceStore = create<InvoiceState>((set, get) => ({
       get().invalidateCache();
     } catch (error) {
       console.error('Failed to delete invoice:', error);
+      throw error;
+    }
+  },
+
+  stopRecurringInvoice: async (id: string) => {
+    try {
+      await invoiceApi.stopRecurring(id);
+      get().invalidateCache();
+    } catch (error) {
+      console.error('Failed to stop recurring invoice:', error);
       throw error;
     }
   },

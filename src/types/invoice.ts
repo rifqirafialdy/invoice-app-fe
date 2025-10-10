@@ -4,7 +4,9 @@ export enum InvoiceStatus {
   PAID = 'PAID',
   CANCELLED = 'CANCELLED',
   OVERDUE = 'OVERDUE',
-  DUE = 'DUE'
+  DUE = 'DUE',
+  CANCELLATION_REQUESTED = 'CANCELLATION_REQUESTED', 
+  PAYMENT_PENDING = 'PAYMENT_PENDING' 
 }
 
 export interface InvoiceItem {

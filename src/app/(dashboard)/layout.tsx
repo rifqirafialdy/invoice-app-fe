@@ -1,9 +1,12 @@
+// src/app/(dashboard)/layout.tsx
+
 'use client';
 
 import { useEffect, useState } from 'react';
 import { useAuthStore } from '@/lib/stores/authStore';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   Sidebar,
   SidebarContent,
@@ -19,6 +22,7 @@ import {
   SidebarTrigger,
 } from '@/components/ui/sidebar';
 import VerificationBanner from '@/components/dashboard/VerificationBanner';
+import UnverifiedUserDialog from '@/components/dashboard/UnverifiedUserDialog';
 import {
   LayoutDashboard,
   FileText,
@@ -26,12 +30,14 @@ import {
   Package,
   Settings,
   LogOut,
+  ShieldAlert,
 } from 'lucide-react';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { user, isAuthenticated, logout } = useAuthStore();
   const [isLoading, setIsLoading] = useState(true);
+  const [isVerificationDialogOpen, setVerificationDialogOpen] = useState(false);
 
   useEffect(() => {
     setIsLoading(false);
@@ -55,13 +61,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     await logout();
     router.push('/login');
   };
-
+  
   const navigation = [
-    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { name: 'Clients', href: '/clients', icon: Users },
-    { name: 'Products', href: '/products', icon: Package },
-    { name: 'Invoices', href: '/invoices', icon: FileText },
-    { name: 'Settings', href: '/settings', icon: Settings },
+    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, protected: false },
+    { name: 'Clients', href: '/clients', icon: Users, protected: true },
+    { name: 'Products', href: '/products', icon: Package, protected: true },
+    { name: 'Invoices', href: '/invoices', icon: FileText, protected: true },
+    { name: 'Settings', href: '/settings', icon: Settings, protected: true }, // Changed this line
   ];
 
   return (
@@ -70,7 +76,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <Sidebar>
           <SidebarHeader>
             <div className="px-4 py-2">
-              <h1 className="text-xl font-bold text-slate-900">Invoice App</h1>
+              <h1 className="text-xl font-bold text-slate-900">SwiftInvoice</h1>
             </div>
           </SidebarHeader>
 
@@ -79,16 +85,31 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <SidebarGroupLabel>Menu</SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
-                  {navigation.map((item) => (
-                    <SidebarMenuItem key={item.name}>
-                      <SidebarMenuButton asChild>
-                        <Link href={item.href}>
-                          <item.icon className="w-4 h-4" />
-                          <span>{item.name}</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
+                  {navigation.map((item) => {
+                    const isProtectedAndUnverified = item.protected && !user?.isVerified;
+                    
+                    return (
+                      <SidebarMenuItem key={item.name}>
+                        {isProtectedAndUnverified ? (
+                          <SidebarMenuButton
+                            onClick={() => setVerificationDialogOpen(true)}
+                            className="cursor-pointer text-slate-500"
+                          >
+                            <item.icon className="w-4 h-4" />
+                            <span>{item.name}</span>
+                            <ShieldAlert className="w-4 h-4 ml-auto text-yellow-500" />
+                          </SidebarMenuButton>
+                        ) : (
+                          <SidebarMenuButton asChild>
+                            <Link href={item.href}>
+                              <item.icon className="w-4 h-4" />
+                              <span>{item.name}</span>
+                            </Link>
+                          </SidebarMenuButton>
+                        )}
+                      </SidebarMenuItem>
+                    );
+                  })}
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
@@ -98,10 +119,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <SidebarMenu>
               <SidebarMenuItem>
                 <div className="flex items-center gap-3 px-2 py-2">
-                  <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-                    <span className="text-blue-700 font-semibold text-sm">
-                      {user?.name?.charAt(0).toUpperCase()}
-                    </span>
+                  <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden">
+                    {user?.logoUrl ? (
+                      <Image
+                        src={user.logoUrl}
+                        alt="Company Logo"
+                        width={32}
+                        height={32}
+                        className="object-contain"
+                      />
+                    ) : (
+                      <span className="text-blue-700 font-semibold text-sm">
+                        {user?.name?.charAt(0).toUpperCase()}
+                      </span>
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-slate-900 truncate">
@@ -135,6 +166,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
         </main>
       </div>
+      <UnverifiedUserDialog 
+        isOpen={isVerificationDialogOpen}
+        onClose={() => setVerificationDialogOpen(false)}
+      />
     </SidebarProvider>
   );
 }

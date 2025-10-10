@@ -1,9 +1,11 @@
 'use client';
 
-import { useState, useEffect,useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useProductStore } from '@/lib/stores/productStore';
 import { useListFilters } from '@/hooks/useListFilters';
 import { ListFilters } from '@/components/common/ListFilters';
+import ConfirmationDialog from '@/components/common/ConfirmationDialog';
+import SuccessDialog from '@/components/common/SuccessDialog';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -40,6 +42,13 @@ export default function ProductsList({ onEdit, onAdd, refreshTrigger }: Products
   const searchParams = useSearchParams();
   const [typeFilter, setTypeFilter] = useState<string>(searchParams.get('type') || 'ALL');
   
+  const [dialogState, setDialogState] = useState<{
+    isConfirmOpen: boolean;
+    isSuccessOpen: boolean;
+    actionItemId: string | null;
+    successMessage: string;
+  }>({ isConfirmOpen: false, isSuccessOpen: false, actionItemId: null, successMessage: '' });
+  
   const additionalFilters = useMemo(() => ({
     type: typeFilter,
   }), [typeFilter]);
@@ -58,7 +67,7 @@ export default function ProductsList({ onEdit, onAdd, refreshTrigger }: Products
       filters.debouncedSearch,
       typeFilter
     );
-  }, [filters.page, filters.sortBy, filters.sortDir, filters.debouncedSearch, typeFilter]);
+  }, [filters.page, filters.sortBy, filters.sortDir, filters.debouncedSearch, typeFilter, fetchProducts]);
 
   useEffect(() => {
     if (refreshTrigger) {
@@ -71,20 +80,24 @@ export default function ProductsList({ onEdit, onAdd, refreshTrigger }: Products
         typeFilter
       );
     }
-  }, [refreshTrigger]);
+  }, [refreshTrigger, invalidateCache, fetchProducts, filters, typeFilter]);
+  
+  const openDeleteDialog = (productId: string) => {
+    setDialogState({ ...dialogState, isConfirmOpen: true, actionItemId: productId });
+  };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this product?')) return;
+  const handleConfirmDelete = async () => {
+    if (!dialogState.actionItemId) return;
 
     try {
-      await deleteProduct(id);
-      fetchProducts(
-        filters.page,
-        filters.sortBy,
-        filters.sortDir,
-        filters.debouncedSearch,
-        typeFilter
-      );
+      await deleteProduct(dialogState.actionItemId);
+      setDialogState({ 
+        isConfirmOpen: false, 
+        actionItemId: null, 
+        isSuccessOpen: true,
+        successMessage: 'Product has been deleted successfully.'
+      });
+      fetchProducts(filters.page, filters.sortBy, filters.sortDir, filters.debouncedSearch, typeFilter);
     } catch (error) {
       console.error('Failed to delete product:', error);
     }
@@ -171,7 +184,7 @@ export default function ProductsList({ onEdit, onAdd, refreshTrigger }: Products
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleDelete(product.id)}
+                      onClick={() => openDeleteDialog(product.id)}
                       className="text-red-600 hover:text-red-700 hover:bg-red-50"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -205,6 +218,22 @@ export default function ProductsList({ onEdit, onAdd, refreshTrigger }: Products
           </Button>
         </div>
       )}
+
+      <ConfirmationDialog
+        isOpen={dialogState.isConfirmOpen}
+        onClose={() => setDialogState({ ...dialogState, isConfirmOpen: false })}
+        onConfirm={handleConfirmDelete}
+        title="Delete Product"
+        description="Are you sure you want to permanently delete this product? This action cannot be undone."
+        confirmText="Delete"
+      />
+
+      <SuccessDialog
+        isOpen={dialogState.isSuccessOpen}
+        onClose={() => setDialogState({ ...dialogState, isSuccessOpen: false })}
+        title="Success!"
+        description={dialogState.successMessage}
+      />
     </div>
   );
 }

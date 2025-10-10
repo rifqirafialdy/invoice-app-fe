@@ -6,8 +6,6 @@ interface ClientState {
   clients: Client[];
   totalPages: number;
   loading: boolean;
-  lastFetch: number | null;
-  lastParams: string | null;
   
   fetchClients: (
     page: number,
@@ -23,19 +21,10 @@ export const useClientStore = create<ClientState>((set, get) => ({
   clients: [],
   totalPages: 0,
   loading: false,
-  lastFetch: null,
-  lastParams: null,
 
   fetchClients: async (page, sortBy, sortDir, search) => {
-    const params = JSON.stringify({ page, sortBy, sortDir, search });
-    const now = Date.now();
-    const { lastFetch, lastParams, loading } = get();
 
-    if (lastParams === params && lastFetch && now - lastFetch < 30000) {
-      console.log('Using cached clients');
-      return;
-    }
-
+    const { loading } = get();
     if (loading) return;
 
     set({ loading: true });
@@ -53,8 +42,6 @@ export const useClientStore = create<ClientState>((set, get) => ({
         clients: response.data.data.content,
         totalPages: response.data.data.totalPages,
         loading: false,
-        lastFetch: now,
-        lastParams: params,
       });
     } catch (error) {
       console.error('Failed to fetch clients:', error);
@@ -65,7 +52,6 @@ export const useClientStore = create<ClientState>((set, get) => ({
   deleteClient: async (id: string) => {
     try {
       await clientApi.delete(id);
-      get().invalidateCache();
     } catch (error) {
       console.error('Failed to delete client:', error);
       throw error;
@@ -73,6 +59,5 @@ export const useClientStore = create<ClientState>((set, get) => ({
   },
 
   invalidateCache: () => {
-    set({ lastFetch: null, lastParams: null });
   },
 }));
