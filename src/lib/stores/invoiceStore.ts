@@ -8,7 +8,7 @@ interface InvoiceState {
   loading: boolean;
   lastFetch: number | null;
   lastParams: string | null;
-    fetchInvoices: (
+  fetchInvoices: (
     page: number,
     sortBy: string,
     sortDir: string,
@@ -18,6 +18,10 @@ interface InvoiceState {
   ) => Promise<void>;
   deleteInvoice: (id: string) => Promise<void>;
   stopRecurringInvoice: (id: string) => Promise<void>;
+  approveCancellation: (id: string) => Promise<void>;
+  rejectCancellation: (id: string) => Promise<void>;
+  confirmPayment: (id: string) => Promise<void>;
+  rejectPayment: (id: string) => Promise<void>;
   invalidateCache: () => void;
 }
 
@@ -50,7 +54,6 @@ export const useInvoiceStore = create<InvoiceState>((set, get) => ({
         search || undefined,
         status !== 'ALL' ? status : undefined,
         isRecurring !== 'ALL' ? isRecurring : undefined
-
       );
       
       set({
@@ -82,6 +85,46 @@ export const useInvoiceStore = create<InvoiceState>((set, get) => ({
       get().invalidateCache();
     } catch (error) {
       console.error('Failed to stop recurring invoice:', error);
+      throw error;
+    }
+  },
+
+  approveCancellation: async (id: string) => {
+    try {
+      await invoiceApi.approveCancellation(id);
+      get().invalidateCache();
+    } catch (error) {
+      console.error('Failed to approve cancellation:', error);
+      throw error;
+    }
+  },
+
+  rejectCancellation: async (id: string) => {
+    try {
+      await invoiceApi.rejectCancellation(id);
+      get().invalidateCache();
+    } catch (error) {
+      console.error('Failed to reject cancellation:', error);
+      throw error;
+    }
+  },
+
+  confirmPayment: async (id: string) => {
+    try {
+      await invoiceApi.confirmPayment(id);
+      get().invalidateCache();
+    } catch (error) {
+      console.error('Failed to confirm payment:', error);
+      throw error;
+    }
+  },
+
+  rejectPayment: async (id: string) => {
+    try {
+      await invoiceApi.rejectPayment(id);
+      get().invalidateCache();
+    } catch (error) {
+      console.error('Failed to reject payment:', error);
       throw error;
     }
   },

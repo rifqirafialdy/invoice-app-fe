@@ -62,3 +62,33 @@ export interface InvoicesResponse {
   size: number;
   number: number;
 }
+export interface PublicInvoiceResponse {
+  invoiceNumber: string;
+  issueDate: string;
+  dueDate: string;
+  status: string;
+  displayStatus: string;
+  companyName: string;
+  companyEmail: string;
+  companyPhone?: string;
+  companyAddress?: string;
+  companyLogoUrl?: string;
+  clientName: string;
+  clientEmail?: string;
+  clientPhone?: string;
+  clientAddress?: string;
+  items: PublicInvoiceItem[];
+  subtotal: number;
+  taxRate: number;
+  taxAmount: number;
+  total: number;
+  notes?: string;
+}
+
+export interface PublicInvoiceItem {
+  productName: string;
+  productDescription?: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+}
