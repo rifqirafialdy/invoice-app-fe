@@ -84,16 +84,16 @@ export default function SettingsPage() {
     }
   };
 
-  // const onEmailChangeSubmit = async (data: EmailChangeFormData) => {
-  //   setSuccessMessage(''); setErrorMessage('');
-  //   try {
-  //     await userApi.requestEmailChange(data);
-  //     setSuccessMessage('A confirmation link has been sent to your new email address.');
-  //     emailForm.reset();
-  //   } catch (error: any) {
-  //     setErrorMessage(error.response?.data?.error || 'Failed to request email change.');
-  //   }
-  // };
+  const onEmailChangeSubmit = async (data: EmailChangeFormData) => {
+    setSuccessMessage(''); setErrorMessage('');
+    try {
+      await userApi.requestEmailChange(data);
+      setSuccessMessage('A verification link has been sent to your current email address. Please check your inbox.');
+      emailForm.reset();
+    } catch (error: any) {
+      setErrorMessage(error.response?.data?.error || 'Failed to request email change.');
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -145,6 +145,7 @@ export default function SettingsPage() {
               <CardDescription>Your current email is <strong>{user?.email}</strong></CardDescription>
             </CardHeader>
             <Form {...emailForm}>
+              <form onSubmit={emailForm.handleSubmit(onEmailChangeSubmit)}>
                 <CardContent className="space-y-4">
                   <FormField control={emailForm.control} name="newEmail" render={({ field }) => (
                     <FormItem>
@@ -166,6 +167,7 @@ export default function SettingsPage() {
                     </Button>
                   </div>
                 </CardContent>
+              </form>
             </Form>
           </Card>
         </div>
@@ -257,4 +259,3 @@ export default function SettingsPage() {
     </div>
   );
 }
-

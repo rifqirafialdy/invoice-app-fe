@@ -1,5 +1,5 @@
 import axiosInstance from './axiosInstance';
-import type { User, UserUpdateRequest, ChangePasswordRequest,EmailChangeRequest } from '@/types/auth';
+import type { User, UserUpdateRequest, ChangePasswordRequest, EmailChangeRequest } from '@/types/auth';
 import type { ApiResponse } from '@/types/api';
 
 export const userApi = {
@@ -26,10 +26,11 @@ export const userApi = {
     });
   },
 
-
-
-  verifyEmailChange: (token: string) => {
-    return axiosInstance.get(`/users/verify-email-change?token=${token}`);
+  requestEmailChange: (data: EmailChangeRequest) => {
+    return axiosInstance.post<ApiResponse<string>>('/user/change-email', data);
   },
 
+  verifyEmailChange: (token: string) => {
+    return axiosInstance.get<ApiResponse<string>>(`/user/verify-email-change?token=${token}`);
+  },
 };
